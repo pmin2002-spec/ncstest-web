@@ -76,11 +76,12 @@
 <div class="wrap">
   <header>
     <h1>NH농협은행 NCS 연습문제</h1>
-    <p>직무능력평가 5영역 + 직무상식 · 무작위 무한 반복 출제</p>
+    <p>직무능력평가 5영역 + 직무상식 · 1번부터 순서대로 출제</p>
   </header>
 
   <div class="controls">
     <select id="categorySelect"></select>
+    <select id="questionSelect"></select>
     <button id="resetStatsBtn" class="reset-btn">기록 초기화</button>
   </div>
 
@@ -717,8 +718,7 @@ const questions = [
 ];
 
 const state = {
-  pool: questions.map((_, i) => i),
-  lastIndex: -1,
+  pos: 0,
   current: null,
   answered: false,
   stats: { total: 0, correct: 0 }
@@ -726,6 +726,7 @@ const state = {
 
 const el = {
   categorySelect: document.getElementById('categorySelect'),
+  questionSelect: document.getElementById('questionSelect'),
   qCategory: document.getElementById('qCategory'),
   qText: document.getElementById('qText'),
   choices: document.getElementById('choices'),
@@ -754,20 +755,29 @@ function currentFilteredIndices(){
     .map(({ i }) => i);
 }
 
-function pickNextIndex(){
+function buildQuestionNumberOptions(){
   const pool = currentFilteredIndices();
-  if (pool.length === 1) return pool[0];
-  let idx;
-  do {
-    idx = pool[Math.floor(Math.random() * pool.length)];
-  } while (idx === state.lastIndex);
-  return idx;
+  el.questionSelect.innerHTML = pool.map((_, pos) => `<option value="${pos}">${pos + 1}번</option>`).join('');
+}
+
+function goToPosition(pos){
+  const pool = currentFilteredIndices();
+  if (pool.length === 0) return;
+  state.pos = Math.max(0, Math.min(pos, pool.length - 1));
+  state.current = pool[state.pos];
+  el.questionSelect.value = String(state.pos);
+  renderQuestion();
+}
+
+function nextQuestion(){
+  const pool = currentFilteredIndices();
+  let pos = state.pos + 1;
+  if (pos >= pool.length) pos = 0;
+  goToPosition(pos);
 }
 
 function renderQuestion(){
-  const idx = pickNextIndex();
-  state.lastIndex = idx;
-  state.current = idx;
+  const idx = state.current;
   state.answered = false;
   const q = questions[idx];
 
@@ -829,8 +839,14 @@ function loadStats(){
   } catch(e){}
 }
 
-el.nextBtn.addEventListener('click', renderQuestion);
-el.categorySelect.addEventListener('change', renderQuestion);
+el.nextBtn.addEventListener('click', nextQuestion);
+el.categorySelect.addEventListener('change', () => {
+  buildQuestionNumberOptions();
+  goToPosition(0);
+});
+el.questionSelect.addEventListener('change', () => {
+  goToPosition(Number(el.questionSelect.value));
+});
 el.resetStatsBtn.addEventListener('click', () => {
   state.stats = { total: 0, correct: 0 };
   updateStats();
@@ -842,14 +858,15 @@ document.addEventListener('keydown', (e) => {
     selectAnswer(Number(e.key) - 1);
   } else if (state.answered && (e.key === 'Enter' || e.key === ' ')) {
     e.preventDefault();
-    renderQuestion();
+    nextQuestion();
   }
 });
 
 loadStats();
 updateStats();
 buildCategoryOptions();
-renderQuestion();
+buildQuestionNumberOptions();
+goToPosition(0);
 </script>
 </body>
 </html>
