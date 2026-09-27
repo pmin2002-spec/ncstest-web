@@ -69,6 +69,10 @@
   }
   .next-btn:hover{background:var(--brand-dark);}
   .reset-btn{background:transparent;color:var(--sub);}
+  .toggle-btn{background:var(--card);}
+  .toggle-btn.active{background:var(--brand);color:#fff;border-color:var(--brand);font-weight:600;}
+  .empty-state{text-align:center;padding:20px 0;color:var(--sub);line-height:1.8;}
+  .empty-state .big{font-size:1.5rem;margin-bottom:6px;}
   footer{text-align:center;color:var(--sub);font-size:0.75rem;margin-top:28px;line-height:1.6;}
 </style>
 </head>
@@ -82,6 +86,7 @@
   <div class="controls">
     <select id="categorySelect"></select>
     <select id="questionSelect"></select>
+    <button id="wrongOnlyBtn" class="toggle-btn">틀린문제만 보기</button>
     <button id="resetStatsBtn" class="reset-btn">기록 초기화</button>
   </div>
 
@@ -89,6 +94,7 @@
     <span>푼 문제 <b id="statTotal">0</b></span>
     <span>맞은 문제 <b id="statCorrect">0</b></span>
     <span>정답률 <b id="statRate">0%</b></span>
+    <span>틀린 문제 <b id="statWrong">0</b></span>
   </div>
 
   <div class="card">
@@ -1321,7 +1327,10 @@ const state = {
   pos: 0,
   current: null,
   answered: false,
-  stats: { total: 0, correct: 0 }
+  stats: { total: 0, correct: 0 },
+  wrongSet: new Set(),
+  wrongOnly: false,
+  pool: []
 };
 
 const el = {
@@ -1336,7 +1345,9 @@ const el = {
   statTotal: document.getElementById('statTotal'),
   statCorrect: document.getElementById('statCorrect'),
   statRate: document.getElementById('statRate'),
+  statWrong: document.getElementById('statWrong'),
   resetStatsBtn: document.getElementById('resetStatsBtn'),
+  wrongOnlyBtn: document.getElementById('wrongOnlyBtn'),
 };
 
 function buildCategoryOptions(){
@@ -1347,33 +1358,51 @@ function buildCategoryOptions(){
   }).join('');
 }
 
-function currentFilteredIndices(){
+function computeFilteredIndices(){
   const cat = el.categorySelect.value;
   return questions
     .map((q, i) => ({ q, i }))
-    .filter(({ q }) => cat === '전체' || q.category === cat)
+    .filter(({ q, i }) => (cat === '전체' || q.category === cat) && (!state.wrongOnly || state.wrongSet.has(i)))
     .map(({ i }) => i);
 }
 
+function rebuildPool(){
+  state.pool = computeFilteredIndices();
+  buildQuestionNumberOptions();
+}
+
 function buildQuestionNumberOptions(){
-  const pool = currentFilteredIndices();
-  el.questionSelect.innerHTML = pool.map((_, pos) => `<option value="${pos}">${pos + 1}번</option>`).join('');
+  el.questionSelect.innerHTML = state.pool.map((_, pos) => `<option value="${pos}">${pos + 1}번</option>`).join('');
 }
 
 function goToPosition(pos){
-  const pool = currentFilteredIndices();
-  if (pool.length === 0) return;
-  state.pos = Math.max(0, Math.min(pos, pool.length - 1));
-  state.current = pool[state.pos];
+  if (state.pool.length === 0){
+    showEmptyState();
+    return;
+  }
+  state.pos = Math.max(0, Math.min(pos, state.pool.length - 1));
+  state.current = state.pool[state.pos];
   el.questionSelect.value = String(state.pos);
   renderQuestion();
 }
 
 function nextQuestion(){
-  const pool = currentFilteredIndices();
   let pos = state.pos + 1;
-  if (pos >= pool.length) pos = 0;
+  if (pos >= state.pool.length) pos = 0;
   goToPosition(pos);
+}
+
+function showEmptyState(){
+  el.qCategory.textContent = '';
+  el.qText.innerHTML = '';
+  el.choices.innerHTML = '';
+  el.feedbackArea.innerHTML = `
+    <div class="empty-state">
+      <div class="big">🎉</div>
+      ${state.wrongOnly ? '틀린 문제를 모두 맞혔습니다!' : '해당 조건의 문제가 없습니다.'}
+    </div>
+  `;
+  el.nextRow.style.display = 'none';
 }
 
 function renderQuestion(){
@@ -1413,6 +1442,28 @@ function selectAnswer(choiceIndex){
   updateStats();
   saveStats();
 
+  if (isCorrect) {
+    if (state.wrongSet.delete(state.current)) {
+      saveWrong();
+      updateWrongCount();
+      if (state.wrongOnly) {
+        // 틀린문제만 보기 모드에서는 맞춘 즉시 목록에서 제거(다음 문제 클릭 시 반영)
+        const posInPool = state.pool.indexOf(state.current);
+        if (posInPool !== -1) state.pool.splice(posInPool, 1);
+        buildQuestionNumberOptions();
+        if (state.pool.length > 0) {
+          el.questionSelect.value = String(Math.min(state.pos, state.pool.length - 1));
+        }
+      }
+    }
+  } else {
+    if (!state.wrongSet.has(state.current)) {
+      state.wrongSet.add(state.current);
+      saveWrong();
+      updateWrongCount();
+    }
+  }
+
   el.feedbackArea.innerHTML = `
     <div class="feedback ${isCorrect ? 'ok' : 'no'}">
       ${isCorrect ? '정답입니다!' : `오답입니다. 정답은 ${['①','②','③','④'][q.answer]}번입니다.`}
@@ -1439,9 +1490,23 @@ function loadStats(){
   } catch(e){}
 }
 
+function saveWrong(){
+  try { localStorage.setItem('nh_ncs_wrong', JSON.stringify(Array.from(state.wrongSet))); } catch(e){}
+}
+function loadWrong(){
+  try {
+    const saved = JSON.parse(localStorage.getItem('nh_ncs_wrong'));
+    if (Array.isArray(saved)) state.wrongSet = new Set(saved.filter(n => Number.isInteger(n) && n >= 0 && n < questions.length));
+  } catch(e){}
+}
+function updateWrongCount(){
+  el.statWrong.textContent = state.wrongSet.size;
+  el.wrongOnlyBtn.textContent = `틀린문제만 보기 (${state.wrongSet.size})`;
+}
+
 el.nextBtn.addEventListener('click', nextQuestion);
 el.categorySelect.addEventListener('change', () => {
-  buildQuestionNumberOptions();
+  rebuildPool();
   goToPosition(0);
 });
 el.questionSelect.addEventListener('change', () => {
@@ -1451,6 +1516,12 @@ el.resetStatsBtn.addEventListener('click', () => {
   state.stats = { total: 0, correct: 0 };
   updateStats();
   saveStats();
+});
+el.wrongOnlyBtn.addEventListener('click', () => {
+  state.wrongOnly = !state.wrongOnly;
+  el.wrongOnlyBtn.classList.toggle('active', state.wrongOnly);
+  rebuildPool();
+  goToPosition(0);
 });
 
 document.addEventListener('keydown', (e) => {
@@ -1463,9 +1534,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 loadStats();
+loadWrong();
 updateStats();
+updateWrongCount();
 buildCategoryOptions();
-buildQuestionNumberOptions();
+rebuildPool();
 goToPosition(0);
 </script>
 </body>
