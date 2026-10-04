@@ -79,11 +79,12 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>NH농협은행 NCS 연습문제</h1>
-    <p>직무능력평가 5영역 + 직무상식 · 1번부터 순서대로 출제</p>
+    <h1 id="examTitle">NH농협은행 NCS 연습문제</h1>
+    <p id="examSubtitle">직무능력평가 5영역 + 직무상식 · 1번부터 순서대로 출제</p>
   </header>
 
   <div class="controls">
+    <select id="examSelect"></select>
     <select id="categorySelect"></select>
     <select id="questionSelect"></select>
     <button id="wrongOnlyBtn" class="toggle-btn">틀린문제만 보기</button>
@@ -107,14 +108,16 @@
     </div>
   </div>
 
-  <footer>
+  <footer id="examFooter">
     본 문제는 실제 NH농협은행 기출문제가 아니며, 공개된 NCS 직무능력평가 출제 영역(의사소통·수리·문제해결·자원관리·정보) 및<br>
     일반 금융·협동조합 상식을 바탕으로 정답과 풀이를 직접 검증하여 제작한 연습문제입니다.
   </footer>
 </div>
 
+<script src="data/nhis-ncs.js"></script>
+<script src="data/nhis-cs.js"></script>
 <script>
-const questions = [
+const COMMON_NCS = [
 /* ===================== 의사소통능력 ===================== */
 {category:"의사소통능력", question:"다음 중 맞춤법이 올바른 문장은?", choices:["오랫만에 만난 친구와 반가운 인사를 나눴다.","오랜만에 만난 친구와 반가운 인사를 나눴다.","오랬만에 만난 친구와 반가운 인사를 나눴다.","오랫만이 만난 친구와 반가운 인사를 나눴다."], answer:1, explanation:"표준어는 '오랜만'입니다. '오랫만' 등은 잘못된 표기입니다."},
 {category:"의사소통능력", question:"밑줄 친 단어와 의미가 가장 유사한 것은?\n\"이번 협상에서 양측은 첨예하게 대립했다.\"", choices:["격렬하다","온화하다","소극적이다","무관심하다"], answer:0, explanation:"'첨예하다'는 대립이나 갈등이 매우 날카롭고 격렬함을 뜻합니다."},
@@ -1323,6 +1326,42 @@ const questions = [
 {category:"직무상식", question:"은행의 'BIS자기자본비율'이 의미하는 것으로 가장 적절한 것은?", choices:["위험가중자산 대비 자기자본의 비율로 은행의 재무건전성을 나타내는 지표","예금 대비 대출금의 비율을 나타내는 지표","환율 변동성을 나타내는 지표","주가수익률을 나타내는 지표"], answer:0, explanation:"BIS자기자본비율은 위험가중자산 대비 자기자본의 비율로 은행의 손실흡수능력과 재무건전성을 나타내는 국제적 지표입니다."},
 ];
 
+const EXAMS = [
+  {
+    id: 'common',
+    name: '공통 NCS (NH농협은행)',
+    title: 'NH농협은행 NCS 연습문제',
+    subtitle: '직무능력평가 5영역 + 직무상식 · 1번부터 순서대로 출제',
+    footer: '본 문제는 실제 NH농협은행 기출문제가 아니며, 공개된 NCS 직무능력평가 출제 영역(의사소통·수리·문제해결·자원관리·정보) 및<br>일반 금융·협동조합 상식을 바탕으로 정답과 풀이를 직접 검증하여 제작한 연습문제입니다.',
+    statsKey: 'nh_ncs_stats',
+    wrongKey: 'nh_ncs_wrong',
+    bank: COMMON_NCS
+  },
+  {
+    id: 'nhis-ncs',
+    name: '농협정보시스템 · NCS직무능력평가',
+    title: '농협정보시스템 NCS직무능력평가',
+    subtitle: '의사소통 · 수리 · 문제해결 · 정보 · 조직이해 5영역 · 1번부터 순서대로 출제',
+    footer: '본 문제는 실제 농협정보시스템 기출문제가 아니며, 공개된 채용 후기와 NCS 직무능력평가 출제 영역을<br>바탕으로 정답과 풀이를 직접 검증하여 제작한 연습문제입니다.',
+    statsKey: 'nhis_ncs_stats',
+    wrongKey: 'nhis_ncs_wrong',
+    bank: window.NHIS_NCS || []
+  },
+  {
+    id: 'nhis-cs',
+    name: '농협정보시스템 · 전산능력평가',
+    title: '농협정보시스템 전산능력평가',
+    subtitle: '전산일반 · 프로그래밍 · 데이터베이스 · 네트워크 4과목 · 1번부터 순서대로 출제',
+    footer: '본 문제는 실제 농협정보시스템 기출문제가 아니며, 공개된 채용 후기와 정보처리기사 출제 범위를<br>바탕으로 정답과 풀이를 직접 검증하여 제작한 연습문제입니다.',
+    statsKey: 'nhis_cs_stats',
+    wrongKey: 'nhis_cs_wrong',
+    bank: window.NHIS_CS || []
+  }
+].filter(e => e.bank.length > 0);
+
+let questions = [];
+let exam = EXAMS[0];
+
 const state = {
   pos: 0,
   current: null,
@@ -1334,6 +1373,10 @@ const state = {
 };
 
 const el = {
+  examSelect: document.getElementById('examSelect'),
+  examTitle: document.getElementById('examTitle'),
+  examSubtitle: document.getElementById('examSubtitle'),
+  examFooter: document.getElementById('examFooter'),
   categorySelect: document.getElementById('categorySelect'),
   questionSelect: document.getElementById('questionSelect'),
   qCategory: document.getElementById('qCategory'),
@@ -1349,6 +1392,31 @@ const el = {
   resetStatsBtn: document.getElementById('resetStatsBtn'),
   wrongOnlyBtn: document.getElementById('wrongOnlyBtn'),
 };
+
+function buildExamOptions(){
+  el.examSelect.innerHTML = EXAMS.map(e =>
+    `<option value="${e.id}">${e.name} (${e.bank.length})</option>`).join('');
+  el.examSelect.style.display = EXAMS.length > 1 ? '' : 'none';
+}
+
+function loadExam(examId){
+  exam = EXAMS.find(e => e.id === examId) || EXAMS[0];
+  questions = exam.bank;
+  el.examSelect.value = exam.id;
+  el.examTitle.textContent = exam.title;
+  el.examSubtitle.textContent = exam.subtitle;
+  el.examFooter.innerHTML = exam.footer;
+  document.title = exam.title;
+  state.stats = { total: 0, correct: 0 };
+  state.wrongSet = new Set();
+  loadStats();
+  loadWrong();
+  updateStats();
+  updateWrongCount();
+  buildCategoryOptions();
+  rebuildPool();
+  goToPosition(0);
+}
 
 function buildCategoryOptions(){
   const cats = ['전체', ...Array.from(new Set(questions.map(q => q.category)))];
@@ -1481,21 +1549,21 @@ function updateStats(){
 }
 
 function saveStats(){
-  try { localStorage.setItem('nh_ncs_stats', JSON.stringify(state.stats)); } catch(e){}
+  try { localStorage.setItem(exam.statsKey, JSON.stringify(state.stats)); } catch(e){}
 }
 function loadStats(){
   try {
-    const saved = JSON.parse(localStorage.getItem('nh_ncs_stats'));
+    const saved = JSON.parse(localStorage.getItem(exam.statsKey));
     if (saved && typeof saved.total === 'number') state.stats = saved;
   } catch(e){}
 }
 
 function saveWrong(){
-  try { localStorage.setItem('nh_ncs_wrong', JSON.stringify(Array.from(state.wrongSet))); } catch(e){}
+  try { localStorage.setItem(exam.wrongKey, JSON.stringify(Array.from(state.wrongSet))); } catch(e){}
 }
 function loadWrong(){
   try {
-    const saved = JSON.parse(localStorage.getItem('nh_ncs_wrong'));
+    const saved = JSON.parse(localStorage.getItem(exam.wrongKey));
     if (Array.isArray(saved)) state.wrongSet = new Set(saved.filter(n => Number.isInteger(n) && n >= 0 && n < questions.length));
   } catch(e){}
 }
@@ -1505,6 +1573,12 @@ function updateWrongCount(){
 }
 
 el.nextBtn.addEventListener('click', nextQuestion);
+el.examSelect.addEventListener('change', () => {
+  state.wrongOnly = false;
+  el.wrongOnlyBtn.classList.remove('active');
+  try { localStorage.setItem('nh_last_exam', el.examSelect.value); } catch(e){}
+  loadExam(el.examSelect.value);
+});
 el.categorySelect.addEventListener('change', () => {
   rebuildPool();
   goToPosition(0);
@@ -1533,13 +1607,13 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-loadStats();
-loadWrong();
-updateStats();
-updateWrongCount();
-buildCategoryOptions();
-rebuildPool();
-goToPosition(0);
+buildExamOptions();
+let initialExam = EXAMS[0].id;
+try {
+  const last = localStorage.getItem('nh_last_exam');
+  if (last && EXAMS.some(e => e.id === last)) initialExam = last;
+} catch(e){}
+loadExam(initialExam);
 </script>
 </body>
 </html>
