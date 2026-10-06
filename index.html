@@ -47,6 +47,13 @@
     display:inline-block;background:var(--chip-bg);color:var(--brand-dark);font-size:0.78rem;
     font-weight:600;padding:4px 10px;border-radius:20px;margin-bottom:12px;
   }
+  .chip-diff{
+    display:inline-block;font-size:0.78rem;font-weight:700;padding:4px 10px;border-radius:20px;
+    margin-bottom:12px;margin-left:6px;border:1px solid transparent;
+  }
+  .chip-diff.diff-하{background:#eef2f7;color:#5b6472;border-color:#d7dde5;}
+  .chip-diff.diff-중{background:#fff4e0;color:#9a6400;border-color:#f2d49a;}
+  .chip-diff.diff-상{background:#fde8e8;color:#c0392b;border-color:#f3b9b3;}
   .qtext{font-size:1.08rem;line-height:1.6;margin-bottom:18px;white-space:pre-line;}
   .choices{display:flex;flex-direction:column;gap:10px;}
   .choice{
@@ -99,7 +106,7 @@
   </div>
 
   <div class="card">
-    <span class="chip" id="qCategory"></span>
+    <span class="chip" id="qCategory"></span><span class="chip-diff" id="qDifficulty"></span>
     <div class="qtext" id="qText"></div>
     <div class="choices" id="choices"></div>
     <div id="feedbackArea"></div>
@@ -1380,6 +1387,7 @@ const el = {
   categorySelect: document.getElementById('categorySelect'),
   questionSelect: document.getElementById('questionSelect'),
   qCategory: document.getElementById('qCategory'),
+  qDifficulty: document.getElementById('qDifficulty'),
   qText: document.getElementById('qText'),
   choices: document.getElementById('choices'),
   feedbackArea: document.getElementById('feedbackArea'),
@@ -1462,6 +1470,8 @@ function nextQuestion(){
 
 function showEmptyState(){
   el.qCategory.textContent = '';
+  el.qDifficulty.textContent = '';
+  el.qDifficulty.className = 'chip-diff';
   el.qText.innerHTML = '';
   el.choices.innerHTML = '';
   el.feedbackArea.innerHTML = `
@@ -1479,6 +1489,9 @@ function renderQuestion(){
   const q = questions[idx];
 
   el.qCategory.textContent = q.category;
+  const diff = q.difficulty || '하';
+  el.qDifficulty.textContent = `난이도: ${diff}`;
+  el.qDifficulty.className = `chip-diff diff-${diff}`;
   el.qText.textContent = q.question;
   el.feedbackArea.innerHTML = '';
   el.nextRow.style.display = 'none';
